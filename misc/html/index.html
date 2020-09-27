@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+<title>Matrix Display</title>
+<script>
+</script>
+
+<style>
+
+body {
+    background: #DCDCDC;
+}
+
+.display-box {
+       position: fixed;
+       height: 100%;
+       width: 100%;
+       display: block;
+       top: 0px;
+       left: 0px;
+       background-color: #DCDCDC;
+}
+
+.main-content{
+       display: block;
+       width: 350px;
+	   height: 620px;
+       margin: auto;
+       background-color: #cccccc;
+       border: 2px solid #666666;
+       border-radius: 10px;
+}
+</style>
+
+</head>
+<body>
+<div class="display-box">
+<div class="main-content">
+<form action="/matrix" method="post">
+<label for="text">Matrix Text:</label>
+<input type="text" id="text" name="text">
+<input type="submit" value="OK">
+</form>
+</div>
+</div>
+
+</body>
+</html>
