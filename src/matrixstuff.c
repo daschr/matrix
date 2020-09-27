@@ -24,7 +24,7 @@
         vTaskDelay(250 / portTICK_RATE_MS); \
     }
 
-
+/*
 static void matrix_draw_text(max7219_t *dev, char *s) {
     for(int i=0; s[i]!='\0'; ++i) {
         max7219_clear(dev);
@@ -33,20 +33,31 @@ static void matrix_draw_text(max7219_t *dev, char *s) {
         vTaskDelay(750 / portTICK_PERIOD_MS);
     }
 }
+*/
+
+static void matrix_show_buf(max7219_t *dev, uint8_t *buf){
+	for(int p=0;p<8;++p){
+    	max7219_clear(dev);
+		for(int m=0;m<dev->cascade_size;++m){
+			char zb[8];
+			for(int i=0;i<8;++i)
+					zb[i]=(*(buf+sizeof(int64_t)*m+i)>>p) + ((*(buf+sizeof(int64_t)*(m+1)+i) & ((1<<p)-1))<<(8-p));
+			max7219_draw_image_8x8(dev, m*8, (const void *) (zb) );
+		}	
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+	}
+}
 
 static void matrix_draw_text2(max7219_t *dev, char *s){
-	int64_t *buf=malloc(sizeof(int64_t)* (dev->cascade_size+1));
-	memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
+	uint8_t *buf=malloc(sizeof(int64_t)*(dev->cascade_size+1));
 
-	int pos;
-	for(pos=0;s[pos]!='\0' && pos<dev->cascade_size+1;++pos)
-		buf[pos]=matrix_font[s[pos]];
- 
-	for(int p=0; s[p]!='\0';++p){
-		
+	for(int p=0;s[p]!='\0';++p){
+		memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
+		for(int i=0;s[p+i]!='\0' && i<dev->cascade_size+1;++i)
+			memcpy(buf+sizeof(int64_t)*i, &matrix_font[s[p+i]-' '], sizeof(int64_t));
+		matrix_show_buf(dev, buf);
 	}
-
-	while(s[pos]!='\0')
+	free(buf);
 }
 
 void matrix_task(void *pvParameter) {
@@ -90,7 +101,7 @@ void matrix_task(void *pvParameter) {
 		length=STND_BUFSIZE;
 		nvs_get_str(nvs_handle, "text", buf, &length);
 
-        matrix_draw_text(&dev, buf);
+        matrix_draw_text2(&dev, buf);
 
         vTaskDelay(SCROLL_DELAY / portTICK_PERIOD_MS);
     }
