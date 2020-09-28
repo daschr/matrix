@@ -44,5 +44,5 @@ void app_main(void){
 	
 	printf("creating matrix task...\n");
 	TaskHandle_t task_handle=NULL;
-	xTaskCreate(matrix_task, "matrix", 10*1024, NULL, tskIDLE_PRIORITY, &task_handle);
+	xTaskCreate(matrix_task, "matrix", 10*1024, NULL, tskIDLE_PRIORITY+1, &task_handle);
 }
