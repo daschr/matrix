@@ -86,3 +86,21 @@ void setup_wifi(void) {
     setup_sta(ssid, pass);
 }
 
+uint16_t scan_wifi(wifi_ap_record_t **ssids){
+	wifi_scan_config_t scan_config;
+	wifi_scan_time_t scan_time={ .active=(wifi_active_scan_time_t) {.min=400, .max=1000}, .passive=1500};
+	memset(&scan_config, 0, sizeof(wifi_scan_config_t));
+	
+	scan_config.scan_type=WIFI_SCAN_TYPE_ACTIVE;
+	scan_config.scan_time=scan_time;
+
+	ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
+
+	uint16_t num_found;
+	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&num_found));
+	*ssids=malloc(sizeof(wifi_ap_record_t)*num_found);
+
+	ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&num_found, *ssids));
+	
+	return num_found;
+}
