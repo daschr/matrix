@@ -5,6 +5,8 @@
 #include "esp_http_server.h"
 #include <math.h>
 #include <nvs_flash.h>
+#include "esp_wifi.h"
+#include "wifi.h"
 
 #include "config.h"
 #include "helper.h"
@@ -172,6 +174,31 @@ end:
 	return retc;
 }
 
+#define FORMAT "{\"ssid\":\"%s\",\"rssi\":%d}%c"
+esp_err_t get_wifi_ssids(httpd_req_t *r){
+        wifi_ap_record_t *ssids=NULL;
+        int found_ssids=scan_wifi(&ssids);
+		httpd_resp_set_type(r, "application/json");
+		if(found_ssids==0){
+			httpd_resp_sendstr(r, "[]");
+			free(ssids);
+			return ESP_OK;
+		}
+
+		char *buf=malloc((strlen(FORMAT)+33+8)*found_ssids);
+        char *sp=buf+1;
+		memset(buf, 0, (strlen(FORMAT)+33+8)*found_ssids);
+		buf[0]='[';
+		
+		for(int i=0;i<found_ssids;++i)
+			sp+=sprintf(sp, FORMAT, ssids[i].ssid, ssids[i].rssi, i==found_ssids-1?']':',');
+		
+		httpd_resp_sendstr(r, buf);
+		free(buf);
+		free(ssids);
+		return ESP_OK;
+}
+
 esp_err_t matrix_handler(httpd_req_t *r){
 	if(r->content_len > STND_BUFSIZE){
 		httpd_resp_set_status(r, "413");
@@ -274,6 +301,13 @@ httpd_uri_t wifi_uri = {
     .user_ctx = NULL
 };
 
+httpd_uri_t get_wifi_ssids_uri = {
+    .uri = "/ssids",
+    .method = HTTP_GET,
+    .handler = get_wifi_ssids,
+    .user_ctx = NULL
+};
+
 httpd_uri_t get_restart_uri = {
     .uri = "/restart",
     .method = HTTP_GET,
@@ -309,6 +343,9 @@ httpd_handle_t start_webserver() {
 
 		//allows storing other wifi creds
 		httpd_register_uri_handler(server, &wifi_uri);
+	
+		//list ssids and rssi
+		httpd_register_uri_handler(server, &get_wifi_ssids_uri);
 	
         //allows restart over http-get
         httpd_register_uri_handler(server, &get_restart_uri);

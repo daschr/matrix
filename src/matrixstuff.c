@@ -48,7 +48,7 @@ static void matrix_draw_text2(max7219_t *dev, char *s){
 			if(s[p+i]>=' ' && s[p+i]<='z')
 				memcpy(buf+sizeof(int64_t)*i, &matrix_font[s[p+i]-' '], sizeof(int64_t));
 			else	
-				memcpy(buf+sizeof(int64_t)*i, &matrix_font['?'], sizeof(int64_t));
+				memcpy(buf+sizeof(int64_t)*i, &matrix_font['?'-' '], sizeof(int64_t));
 		}
 		matrix_show_buf(dev, buf, zb);
 	}
