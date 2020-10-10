@@ -86,6 +86,17 @@ void setup_wifi(void) {
     setup_sta(ssid, pass);
 }
 
+void reset_wifi(void){
+	nvs_handle_t nvs_handle;
+	if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK){
+		printf("could not open nvs");
+		return;
+	}
+
+	nvs_erase_key(nvs_handle, "ssid");
+	nvs_erase_key(nvs_handle, "pass");
+}
+
 uint16_t scan_wifi(wifi_ap_record_t **ssids){
 	wifi_scan_config_t scan_config;
 	wifi_scan_time_t scan_time={ .active=(wifi_active_scan_time_t) {.min=400, .max=1000}, .passive=1500};

@@ -198,6 +198,13 @@ esp_err_t get_wifi_ssids(httpd_req_t *r){
 		free(ssids);
 		return ESP_OK;
 }
+#undef FORMAT
+
+esp_err_t reset_wifi_conf(httpd_req_t *r){
+	reset_wifi();
+	httpd_resp_sendstr(r, "success");
+	return ESP_OK;
+}
 
 esp_err_t matrix_handler(httpd_req_t *r){
 	if(r->content_len > STND_BUFSIZE){
@@ -287,6 +294,13 @@ httpd_uri_t index_uri = {
     .user_ctx = NULL
 };
 
+httpd_uri_t reset_wifi_uri = {
+    .uri = "/reset-wifi",
+    .method = HTTP_GET,
+    .handler = reset_wifi_conf,
+    .user_ctx = NULL
+};
+
 httpd_uri_t matrix_uri = {
     .uri = "/matrix",
     .method = HTTP_POST,
@@ -343,6 +357,9 @@ httpd_handle_t start_webserver() {
 
 		//allows storing other wifi creds
 		httpd_register_uri_handler(server, &wifi_uri);
+	
+		//reset wifi creds
+		httpd_register_uri_handler(server, &reset_wifi_uri);
 	
 		//list ssids and rssi
 		httpd_register_uri_handler(server, &get_wifi_ssids_uri);
