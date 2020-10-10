@@ -19,17 +19,39 @@ body {
        display: block;
        top: 0px;
        left: 0px;
-       background-color: #DCDCDC;
+       background-color: rgb(57,57,57);
 }
 
 .main-content{
-       display: block;
-       width: 350px;
-	   height: 620px;
-       margin: auto;
-       background-color: #cccccc;
-       border: 2px solid #666666;
-       border-radius: 10px;
+	margin: 0;
+  	position: absolute;
+  	top: 50%;
+  	left: 50%;
+  	-ms-transform: translate(-50%, -50%);
+  	transform: translate(-50%, -50%);
+}
+
+input[type=submit] {
+	background-color: transparent;
+	border: 2px solid #656565;
+	color: #d0d0d0;
+	box-sizing: border-box;
+}
+
+input[type=text] {
+	background-color: transparent;
+	border: 2px solid #656565;
+	border-radius: 2px;
+	color: #d0d0d0;
+	box-sizing: border-box;
+}
+
+input[type=text]:focus {
+	background-color: transparent;
+	border: 4px solid #578D20;
+	border-radius: 2px;
+	box-sizing: border-box;
+	outline-width: 0;
 }
 </style>
 
@@ -38,9 +60,8 @@ body {
 <div class="display-box">
 <div class="main-content">
 <form action="/matrix" method="post">
-<label for="text">Matrix Text:</label>
-<input type="text" id="text" name="text">
-<input type="submit" value="OK">
+	<input type="text" id="text" class="rq-form-element" name="text">
+	<input type="submit" value="OK">
 </form>
 </div>
 </div>
