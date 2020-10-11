@@ -100,24 +100,24 @@ esp_err_t ota_post(httpd_req_t *r) {
     return ESP_OK;
 }
 
-esp_err_t store_wifi_creds_handler(httpd_req_t *r){
-	if(r->content_len > STND_BUFSIZE){
-		httpd_resp_set_status(r, "413");
+esp_err_t store_wifi_creds_handler(httpd_req_t *r) {
+    if(r->content_len > STND_BUFSIZE) {
+        httpd_resp_set_status(r, "413");
         httpd_resp_sendstr(r, "too large :(");
         return ESP_FAIL;
-	}
+    }
 
-	nvs_handle_t nvs_handle;
-	if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK){
-		httpd_resp_set_status(r, "408");
-		httpd_resp_sendstr(r, "could not open nvs :(");
-		return ESP_FAIL;
-	}
+    nvs_handle_t nvs_handle;
+    if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK) {
+        httpd_resp_set_status(r, "408");
+        httpd_resp_sendstr(r, "could not open nvs :(");
+        return ESP_FAIL;
+    }
 
-	static const char *params[]={"ssid", "pass"};
-	uint8_t retc=ESP_OK;
-	char *content=NULL, *raw_val=NULL, *decoded_val=NULL;
-	size_t recv_size = r->content_len<STND_BUFSIZE? r->content_len : STND_BUFSIZE;
+    static const char *params[]= {"ssid", "pass"};
+    uint8_t retc=ESP_OK;
+    char *content=NULL, *raw_val=NULL, *decoded_val=NULL;
+    size_t recv_size = r->content_len<STND_BUFSIZE? r->content_len : STND_BUFSIZE;
 
     content=malloc(recv_size+1);
     memset(content, 0, recv_size+1);
@@ -127,102 +127,102 @@ esp_err_t store_wifi_creds_handler(httpd_req_t *r){
         if (ret == HTTPD_SOCK_ERR_TIMEOUT)
             httpd_resp_send_408(r);
         retc=ESP_FAIL;
-		goto end;
+        goto end;
     }
 
     printf("content: %s\n", content);
     raw_val=malloc(recv_size+1);
-	decoded_val=malloc(recv_size+1);
-    
-	for(size_t i=0;i<sizeof(params)/sizeof(const char *);++i){
-		memset(raw_val, 0, recv_size+1);
-    	memset(decoded_val, 0, recv_size+1);
-    
-		if(httpd_query_key_value(content, params[i], raw_val, recv_size) != ESP_OK){
-        	httpd_resp_set_status(r, "400");
-        	httpd_resp_sendstr(r, "ssid or pass missing :(");
-        	retc=ESP_FAIL;
-			goto end;
-    	}
+    decoded_val=malloc(recv_size+1);
 
-		if(!url_decode(raw_val, decoded_val, recv_size+1)) {
-        	httpd_resp_set_status(r, "413");
-        	httpd_resp_sendstr(r, "value too long :(");
-        	retc=ESP_FAIL;
-			goto end;
-    	}
-		
-		if(nvs_set_str(nvs_handle, params[i], decoded_val) != ESP_OK){
-			httpd_resp_set_status(r, "408");
-			httpd_resp_sendstr(r, "could not store config param");
-			goto end;
-		}
+    for(size_t i=0; i<sizeof(params)/sizeof(const char *); ++i) {
+        memset(raw_val, 0, recv_size+1);
+        memset(decoded_val, 0, recv_size+1);
 
-		printf("setting [%s]=%s\n", params[i], decoded_val);
-	}
+        if(httpd_query_key_value(content, params[i], raw_val, recv_size) != ESP_OK) {
+            httpd_resp_set_status(r, "400");
+            httpd_resp_sendstr(r, "ssid or pass missing :(");
+            retc=ESP_FAIL;
+            goto end;
+        }
 
-	httpd_resp_sendstr(r, misc_html_redirect_html);
-	
-	nvs_commit(nvs_handle);
+        if(!url_decode(raw_val, decoded_val, recv_size+1)) {
+            httpd_resp_set_status(r, "413");
+            httpd_resp_sendstr(r, "value too long :(");
+            retc=ESP_FAIL;
+            goto end;
+        }
+
+        if(nvs_set_str(nvs_handle, params[i], decoded_val) != ESP_OK) {
+            httpd_resp_set_status(r, "408");
+            httpd_resp_sendstr(r, "could not store config param");
+            goto end;
+        }
+
+        printf("setting [%s]=%s\n", params[i], decoded_val);
+    }
+
+    httpd_resp_sendstr(r, misc_html_redirect_html);
+
+    nvs_commit(nvs_handle);
 end:
-	nvs_close(nvs_handle);
+    nvs_close(nvs_handle);
 
-	free(content);
-	free(raw_val);
-	free(decoded_val);
-	
-	return retc;
+    free(content);
+    free(raw_val);
+    free(decoded_val);
+
+    return retc;
 }
 
 #define FORMAT "{\"ssid\":\"%s\",\"rssi\":%d}%c"
-esp_err_t get_wifi_ssids(httpd_req_t *r){
-        wifi_ap_record_t *ssids=NULL;
-        int found_ssids=scan_wifi(&ssids);
-		httpd_resp_set_type(r, "application/json");
-		if(found_ssids==0){
-			httpd_resp_sendstr(r, "[]");
-			free(ssids);
-			return ESP_OK;
-		}
+esp_err_t get_wifi_ssids(httpd_req_t *r) {
+    wifi_ap_record_t *ssids=NULL;
+    int found_ssids=scan_wifi(&ssids);
+    httpd_resp_set_type(r, "application/json");
+    if(found_ssids==0) {
+        httpd_resp_sendstr(r, "[]");
+        free(ssids);
+        return ESP_OK;
+    }
 
-		char *buf=malloc((strlen(FORMAT)+33+8)*found_ssids);
-        char *sp=buf+1;
-		memset(buf, 0, (strlen(FORMAT)+33+8)*found_ssids);
-		buf[0]='[';
-		
-		for(int i=0;i<found_ssids;++i)
-			sp+=sprintf(sp, FORMAT, ssids[i].ssid, ssids[i].rssi, i==found_ssids-1?']':',');
-		
-		httpd_resp_sendstr(r, buf);
-		free(buf);
-		free(ssids);
-		return ESP_OK;
+    char *buf=malloc((strlen(FORMAT)+33+8)*found_ssids);
+    char *sp=buf+1;
+    memset(buf, 0, (strlen(FORMAT)+33+8)*found_ssids);
+    buf[0]='[';
+
+    for(int i=0; i<found_ssids; ++i)
+        sp+=sprintf(sp, FORMAT, ssids[i].ssid, ssids[i].rssi, i==found_ssids-1?']':',');
+
+    httpd_resp_sendstr(r, buf);
+    free(buf);
+    free(ssids);
+    return ESP_OK;
 }
 #undef FORMAT
 
-esp_err_t reset_wifi_conf(httpd_req_t *r){
-	reset_wifi();
-	httpd_resp_sendstr(r, "success");
-	return ESP_OK;
+esp_err_t reset_wifi_conf(httpd_req_t *r) {
+    reset_wifi();
+    httpd_resp_sendstr(r, "success");
+    return ESP_OK;
 }
 
-esp_err_t matrix_handler(httpd_req_t *r){
-	if(r->content_len > STND_BUFSIZE){
-		httpd_resp_set_status(r, "413");
+esp_err_t matrix_handler(httpd_req_t *r) {
+    if(r->content_len > STND_BUFSIZE) {
+        httpd_resp_set_status(r, "413");
         httpd_resp_sendstr(r, "too large :(");
         return ESP_FAIL;
-	}
+    }
 
-	nvs_handle_t nvs_handle;
-	if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK){
-		httpd_resp_set_status(r, "408");
-		httpd_resp_sendstr(r, "could not open nvs :(");
-		return ESP_FAIL;
-	}
+    nvs_handle_t nvs_handle;
+    if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK) {
+        httpd_resp_set_status(r, "408");
+        httpd_resp_sendstr(r, "could not open nvs :(");
+        return ESP_FAIL;
+    }
 
-	uint8_t retc=ESP_OK;
-	char *content=NULL, *raw_val=NULL, *decoded_val=NULL;
-	size_t recv_size = r->content_len<STND_BUFSIZE? r->content_len : STND_BUFSIZE;
+    uint8_t retc=ESP_OK;
+    char *content=NULL, *raw_val=NULL, *decoded_val=NULL;
+    size_t recv_size = r->content_len<STND_BUFSIZE? r->content_len : STND_BUFSIZE;
 
     content=malloc(recv_size+1);
     memset(content, 0, recv_size+1);
@@ -232,49 +232,70 @@ esp_err_t matrix_handler(httpd_req_t *r){
         if (ret == HTTPD_SOCK_ERR_TIMEOUT)
             httpd_resp_send_408(r);
         retc=ESP_FAIL;
-		goto end;
+        goto end;
     }
 
     printf("content: %s\n", content);
     raw_val=malloc(recv_size+1);
-	decoded_val=malloc(recv_size+1);
-    
-	memset(raw_val, 0, recv_size+1);
+    decoded_val=malloc(recv_size+1);
+
+    memset(raw_val, 0, recv_size+1);
     memset(decoded_val, 0, recv_size+1);
-    
-	if(httpd_query_key_value(content, "text", raw_val, recv_size) != ESP_OK){
-       	httpd_resp_set_status(r, "400");
-       	httpd_resp_sendstr(r, "text param missing :(");
-       	retc=ESP_FAIL;
-		goto end;
+
+    if(httpd_query_key_value(content, "text", raw_val, recv_size) != ESP_OK) {
+        httpd_resp_set_status(r, "400");
+        httpd_resp_sendstr(r, "text param missing :(");
+        retc=ESP_FAIL;
+        goto end;
     }
 
-	if(!url_decode(raw_val, decoded_val, recv_size+1)) {
-       	httpd_resp_set_status(r, "413");
-       	httpd_resp_sendstr(r, "value too long :(");
-       	retc=ESP_FAIL;
-		goto end;
+    if(!url_decode(raw_val, decoded_val, recv_size+1)) {
+        httpd_resp_set_status(r, "413");
+        httpd_resp_sendstr(r, "value too long :(");
+        retc=ESP_FAIL;
+        goto end;
     }
-		
-	if(nvs_set_str(nvs_handle, "text", decoded_val) != ESP_OK){
-		httpd_resp_set_status(r, "408");
-		httpd_resp_sendstr(r, "could not store text");
-		goto end;
-	}
 
-	printf("setting [text]=%s\n", decoded_val);
+	int i=0;
+    for(char *c=decoded_val; *c!='\0'; ++i) {
+        if(*c==0xc3 && ( *(c+1)==0xb6 || *(c+1)==0x96)) {
+            decoded_val[i]='z'+1;
+            c+=2;
+        }
+        else if(*c==0xc3 && (*(c+1)==0xbc || *(c+1)==0x9c)) {
+            decoded_val[i]='z'+2;
+            c+=2;
+        }
+        else if(*c==0xc3 && (*(c+1)==0xa4 || *(c+1)==0x84)) {
+            decoded_val[i]='z'+3;
+            c+=2;
+        }
+        else{
+            decoded_val[i]=*c;
+			++c;
+		}
+    }
+	decoded_val[i]='\0';
 
-	httpd_resp_sendstr(r, misc_html_redirect_html);
-	
-	nvs_commit(nvs_handle);
+    if(nvs_set_str(nvs_handle, "text", decoded_val) != ESP_OK) {
+        httpd_resp_set_status(r, "408");
+        httpd_resp_sendstr(r, "could not store text");
+        goto end;
+    }
+
+    printf("setting [text]=%s\n", decoded_val);
+
+    httpd_resp_sendstr(r, misc_html_redirect_html);
+
+    nvs_commit(nvs_handle);
 end:
-	nvs_close(nvs_handle);
+    nvs_close(nvs_handle);
 
-	free(content);
-	free(raw_val);
-	free(decoded_val);
-	
-	return retc;
+    free(content);
+    free(raw_val);
+    free(decoded_val);
+
+    return retc;
 }
 
 esp_err_t get_restart(httpd_req_t *r) {
@@ -282,9 +303,9 @@ esp_err_t get_restart(httpd_req_t *r) {
     return ESP_OK;
 }
 
-esp_err_t get_index(httpd_req_t *r){
-	httpd_resp_sendstr(r, misc_html_index_html);	
-	return ESP_OK;
+esp_err_t get_index(httpd_req_t *r) {
+    httpd_resp_sendstr(r, misc_html_index_html);
+    return ESP_OK;
 }
 
 httpd_uri_t index_uri = {
@@ -351,28 +372,28 @@ httpd_handle_t start_webserver() {
     if (httpd_start(&server, &config) == ESP_OK) {
         //set matrix text
         httpd_register_uri_handler(server, &matrix_uri);
-	
-		//index
-		httpd_register_uri_handler(server, &index_uri);
 
-		//allows storing other wifi creds
-		httpd_register_uri_handler(server, &wifi_uri);
-	
-		//reset wifi creds
-		httpd_register_uri_handler(server, &reset_wifi_uri);
-	
-		//list ssids and rssi
-		httpd_register_uri_handler(server, &get_wifi_ssids_uri);
-	
+        //index
+        httpd_register_uri_handler(server, &index_uri);
+
+        //allows storing other wifi creds
+        httpd_register_uri_handler(server, &wifi_uri);
+
+        //reset wifi creds
+        httpd_register_uri_handler(server, &reset_wifi_uri);
+
+        //list ssids and rssi
+        httpd_register_uri_handler(server, &get_wifi_ssids_uri);
+
         //allows restart over http-get
         httpd_register_uri_handler(server, &get_restart_uri);
 
         //OTA
         httpd_register_uri_handler(server, &ota_uri_get);
         httpd_register_uri_handler(server, &ota_uri_post);
-    }else{
-		printf("could not start webserver :(\n");
-	}
+    } else {
+        printf("could not start webserver :(\n");
+    }
     return server;
 }
 
