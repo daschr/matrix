@@ -24,36 +24,40 @@
         vTaskDelay(250 / portTICK_RATE_MS); \
     }
 
-static void matrix_show_buf(max7219_t *dev, uint8_t *buf, uint8_t *zb){
-	for(int p=0;p<8;++p){
-		for(int m=0;m<dev->cascade_size;++m){
-			for(int i=0;i<8;++i)
-					zb[sizeof(int64_t)*m+i]=(*(buf+sizeof(int64_t)*m+i)>>p) + ((*(buf+sizeof(int64_t)*(m+1)+i) & ((1<<p)-1))<<(8-p));
-		}	
-		
-		for(int m=0;m<dev->cascade_size;++m)
-			max7219_draw_image_8x8(dev, m*8, (const void *) (zb+sizeof(int64_t)*m) );
+static void matrix_show_buf(max7219_t *dev, uint8_t *buf, uint8_t *zb, int8_t first_pause) {
+    for(int p=0; p<8; ++p) {
+        for(int m=0; m<dev->cascade_size; ++m) {
+            for(int i=0; i<8; ++i)
+                zb[sizeof(int64_t)*m+i]=(*(buf+sizeof(int64_t)*m+i)>>p) + ((*(buf+sizeof(int64_t)*(m+1)+i) & ((1<<p)-1))<<(8-p));
+        }
 
-		vTaskDelay(50 / portTICK_PERIOD_MS);
-	}
+        for(int m=0; m<dev->cascade_size; ++m)
+            max7219_draw_image_8x8(dev, m*8, (const void *) (zb+sizeof(int64_t)*m) );
+
+        vTaskDelay((first_pause && p==0?400:50) / portTICK_PERIOD_MS);
+    }
 }
 
-static void matrix_draw_text2(max7219_t *dev, char *s){
-	uint8_t *buf=malloc(sizeof(int64_t)*(dev->cascade_size+1));
-	uint8_t *zb=malloc(sizeof(int64_t)*dev->cascade_size);
+static void matrix_draw_text(max7219_t *dev, char *s) {
+    uint8_t *buf=malloc(sizeof(int64_t)*(dev->cascade_size+1));
+    uint8_t *zb=malloc(sizeof(int64_t)*dev->cascade_size);
 
-	for(int p=0;s[p]!='\0';++p){
-		memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
-		for(int i=0;s[p+i]!='\0' && i<dev->cascade_size+1;++i){
-			if(s[p+i]>=' ' && s[p+i]<='z')
-				memcpy(buf+sizeof(int64_t)*i, &matrix_font[s[p+i]-' '], sizeof(int64_t));
-			else	
-				memcpy(buf+sizeof(int64_t)*i, &matrix_font['?'-' '], sizeof(int64_t));
-		}
-		matrix_show_buf(dev, buf, zb);
-	}
-	free(buf);
-	free(zb);
+    for(int p=0; s[p]!='\0'; ++p) {
+        memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
+        for(int i=0; s[p+i]!='\0' && i<dev->cascade_size+1; ++i) {
+            if(s[p+i]>=' ' && s[p+i]<='z')
+                memcpy(buf+sizeof(int64_t)*i, &matrix_font[s[p+i]-' '], sizeof(int64_t));
+            else
+                memcpy(buf+sizeof(int64_t)*i, &matrix_font['?'-' '], sizeof(int64_t));
+        }
+        matrix_show_buf(dev, buf, zb, (p==0));
+    }
+
+    memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
+    matrix_show_buf(dev, buf, zb, 0);
+
+    free(buf);
+    free(zb);
 }
 
 void matrix_task(void *pvParameter) {
@@ -82,22 +86,22 @@ void matrix_task(void *pvParameter) {
           "Could not initialize MAX7129 descriptor: %d");
     CHECK(max7219_init(&dev),
           "Could not initialize MAX7129: %d");
-	
-	nvs_handle_t nvs_handle;
-	while(nvs_open("nvs", NVS_READONLY, &nvs_handle)!=ESP_OK){
-		printf("could not init nvs, sleeping...\n");
-		vTaskDelay(3000/portTICK_PERIOD_MS);
-	}
 
-	char *buf=malloc(STND_BUFSIZE);	
+    nvs_handle_t nvs_handle;
+    while(nvs_open("nvs", NVS_READONLY, &nvs_handle)!=ESP_OK) {
+        printf("could not init nvs, sleeping...\n");
+        vTaskDelay(3000/portTICK_PERIOD_MS);
+    }
+
+    char *buf=malloc(STND_BUFSIZE);
     size_t length;
 
-	for(;;) {
-		memset(buf, 0, STND_BUFSIZE);
-		length=STND_BUFSIZE;
-		nvs_get_str(nvs_handle, "text", buf, &length);
+    for(;;) {
+        memset(buf, 0, STND_BUFSIZE);
+        length=STND_BUFSIZE;
+        nvs_get_str(nvs_handle, "text", buf, &length);
 
-        matrix_draw_text2(&dev, buf);
+        matrix_draw_text(&dev, buf);
 
         vTaskDelay(SCROLL_DELAY / portTICK_PERIOD_MS);
     }
