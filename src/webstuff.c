@@ -259,15 +259,15 @@ esp_err_t matrix_handler(httpd_req_t *r) {
 	int i=0;
     for(char *c=decoded_val; *c!='\0'; ++i) {
         if(*c==0xc3 && ( *(c+1)==0xb6 || *(c+1)==0x96)) {
-            decoded_val[i]='z'+1;
+            decoded_val[i]='~'+1;
             c+=2;
         }
         else if(*c==0xc3 && (*(c+1)==0xbc || *(c+1)==0x9c)) {
-            decoded_val[i]='z'+2;
+            decoded_val[i]='~'+2;
             c+=2;
         }
         else if(*c==0xc3 && (*(c+1)==0xa4 || *(c+1)==0x84)) {
-            decoded_val[i]='z'+3;
+            decoded_val[i]='~'+3;
             c+=2;
         }
         else{

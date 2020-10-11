@@ -45,7 +45,7 @@ static void matrix_draw_text(max7219_t *dev, char *s) {
     for(int p=0; s[p]!='\0'; ++p) {
         memset(buf, 0, sizeof(int64_t)*(dev->cascade_size+1));
         for(int i=0; s[p+i]!='\0' && i<dev->cascade_size+1; ++i) {
-            if(s[p+i]>=' ' && s[p+i]<='z'+3)
+            if(s[p+i]>=' ' && s[p+i]<='~'+3)
                 memcpy(buf+sizeof(int64_t)*i, &matrix_font[s[p+i]-' '], sizeof(int64_t));
             else
                 memcpy(buf+sizeof(int64_t)*i, &matrix_font['?'-' '], sizeof(int64_t));
