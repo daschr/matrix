@@ -1,0 +1,3 @@
+[submodule "add_libs/esp-idf-lib"]
+	path = add_libs/esp-idf-lib
+	url = https://github.com/daschr/esp-idf-lib
