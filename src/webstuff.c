@@ -30,7 +30,7 @@ esp_err_t ota_get(httpd_req_t *r) {
 esp_err_t ota_post(httpd_req_t *r) {
     if(r->content_len > STND_BUFSIZE) {
         httpd_resp_set_status(r, "413");
-        httpd_resp_sendstr(r, "too large :(");
+        httpd_resp_sendstr(r, "too large :(\n");
         return ESP_FAIL;
     }
 
@@ -47,13 +47,12 @@ esp_err_t ota_post(httpd_req_t *r) {
         return ESP_FAIL;
     }
 
-    printf("content: %s\n", content);
     char *raw_url=malloc(recv_size+1);
     memset(raw_url, 0, recv_size+1);
     if(httpd_query_key_value(content, "url", raw_url, recv_size) != ESP_OK) {
         printf("raw_url: %s\n", raw_url);
         httpd_resp_set_status(r, "400");
-        httpd_resp_sendstr(r, "url missing :(");
+        httpd_resp_sendstr(r, "url missing :(\n");
         free(content);
         free(raw_url);
         return ESP_FAIL;
@@ -63,7 +62,7 @@ esp_err_t ota_post(httpd_req_t *r) {
     memset(url, 0, recv_size+1);
     if(!url_decode(raw_url, url, recv_size+1)) {
         httpd_resp_set_status(r, "413");
-        httpd_resp_sendstr(r, "url too long");
+        httpd_resp_sendstr(r, "url too long\n");
         free(content);
         free(raw_url);
         return ESP_FAIL;
@@ -88,12 +87,12 @@ esp_err_t ota_post(httpd_req_t *r) {
 
     if (ret == ESP_OK) {
         printf("upgrade successfull!\n");
-        httpd_resp_sendstr(r, "upgrade successfull!");
+        httpd_resp_sendstr(r, "upgrade successfull!\n");
         esp_restart();
     } else {
         printf("failed to upgrade\n!");
         httpd_resp_set_status(r, "400");
-        httpd_resp_sendstr(r, "Failed to upgrade :(");
+        httpd_resp_sendstr(r, "Failed to upgrade :(\n");
         return ESP_FAIL;
     }
 
@@ -103,14 +102,14 @@ esp_err_t ota_post(httpd_req_t *r) {
 esp_err_t store_wifi_creds_handler(httpd_req_t *r) {
     if(r->content_len > STND_BUFSIZE) {
         httpd_resp_set_status(r, "413");
-        httpd_resp_sendstr(r, "too large :(");
+        httpd_resp_sendstr(r, "too large :(\n");
         return ESP_FAIL;
     }
 
     nvs_handle_t nvs_handle;
     if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK) {
         httpd_resp_set_status(r, "408");
-        httpd_resp_sendstr(r, "could not open nvs :(");
+        httpd_resp_sendstr(r, "could not open nvs :(\n");
         return ESP_FAIL;
     }
 
@@ -130,7 +129,6 @@ esp_err_t store_wifi_creds_handler(httpd_req_t *r) {
         goto end;
     }
 
-    printf("content: %s\n", content);
     raw_val=malloc(recv_size+1);
     decoded_val=malloc(recv_size+1);
 
@@ -140,21 +138,21 @@ esp_err_t store_wifi_creds_handler(httpd_req_t *r) {
 
         if(httpd_query_key_value(content, params[i], raw_val, recv_size) != ESP_OK) {
             httpd_resp_set_status(r, "400");
-            httpd_resp_sendstr(r, "ssid or pass missing :(");
+            httpd_resp_sendstr(r, "ssid or pass missing :(\n");
             retc=ESP_FAIL;
             goto end;
         }
 
         if(!url_decode(raw_val, decoded_val, recv_size+1)) {
             httpd_resp_set_status(r, "413");
-            httpd_resp_sendstr(r, "value too long :(");
+            httpd_resp_sendstr(r, "value too long :(\n");
             retc=ESP_FAIL;
             goto end;
         }
 
         if(nvs_set_str(nvs_handle, params[i], decoded_val) != ESP_OK) {
             httpd_resp_set_status(r, "408");
-            httpd_resp_sendstr(r, "could not store config param");
+            httpd_resp_sendstr(r, "could not store config param\n");
             goto end;
         }
 
@@ -202,21 +200,21 @@ esp_err_t get_wifi_ssids(httpd_req_t *r) {
 
 esp_err_t reset_wifi_conf(httpd_req_t *r) {
     reset_wifi();
-    httpd_resp_sendstr(r, "success");
+    httpd_resp_sendstr(r, "success\n");
     return ESP_OK;
 }
 
 esp_err_t matrix_handler(httpd_req_t *r) {
     if(r->content_len > STND_BUFSIZE) {
         httpd_resp_set_status(r, "413");
-        httpd_resp_sendstr(r, "too large :(");
+        httpd_resp_sendstr(r, "too large :(\n");
         return ESP_FAIL;
     }
 
     nvs_handle_t nvs_handle;
     if(nvs_open("nvs", NVS_READWRITE, &nvs_handle)!=ESP_OK) {
         httpd_resp_set_status(r, "408");
-        httpd_resp_sendstr(r, "could not open nvs :(");
+        httpd_resp_sendstr(r, "could not open nvs :(\n");
         return ESP_FAIL;
     }
 
@@ -244,14 +242,14 @@ esp_err_t matrix_handler(httpd_req_t *r) {
 
     if(httpd_query_key_value(content, "text", raw_val, recv_size) != ESP_OK) {
         httpd_resp_set_status(r, "400");
-        httpd_resp_sendstr(r, "text param missing :(");
+        httpd_resp_sendstr(r, "text param missing :(\n");
         retc=ESP_FAIL;
         goto end;
     }
 
     if(!url_decode(raw_val, decoded_val, recv_size+1)) {
         httpd_resp_set_status(r, "413");
-        httpd_resp_sendstr(r, "value too long :(");
+        httpd_resp_sendstr(r, "value too long :(\n");
         retc=ESP_FAIL;
         goto end;
     }
@@ -279,7 +277,7 @@ esp_err_t matrix_handler(httpd_req_t *r) {
 
     if(nvs_set_str(nvs_handle, "text", decoded_val) != ESP_OK) {
         httpd_resp_set_status(r, "408");
-        httpd_resp_sendstr(r, "could not store text");
+        httpd_resp_sendstr(r, "could not store text\n");
         goto end;
     }
 
