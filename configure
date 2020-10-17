@@ -1,12 +1,29 @@
 #!/bin/bash
 
-[ -e "tools/bin2c" ] || cc -O3  -Wall -pedantic -o tools/bin2c tools/bin2c.c || exit 1
 
-out=src/files.c
-files=(misc/cert.pem misc/html/index.html misc/html/redirect.html)
+embed_files(){
+	[ -e "tools/bin2c" ] || cc -O3  -Wall -pedantic -o tools/bin2c tools/bin2c.c || exit 1
 
-echo "" > "$out"
-for f in "${files[@]}"; do
-	echo "embed \"$f\""
-	./tools/bin2c "$f" >> "$out"
-done 
+	local out=src/files.c
+	local files=(misc/cert.pem misc/html/index.html misc/html/redirect.html)
+	
+	echo "" > "$out"
+	for	f in "${files[@]}"; do
+		echo "embed \"$f\""
+		./tools/bin2c "$f" >> "$out"
+	done 
+}
+
+
+conf_libs(){
+		git submodule update --init --recursive
+		echo "configuring esp-idf-lib"
+		cp -r add_libs/esp-idf-lib/components/* lib/ 		
+}
+
+
+echo "libs..."
+conf_libs
+
+echo "files..."
+embed_files
