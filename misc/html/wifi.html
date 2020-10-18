@@ -79,15 +79,14 @@ tr:hover{
 
 		<script>
 				async function genTable(){
-					var resp=fetch("/ssids");
+					var resp=await fetch("/ssids");
 					var ssids;
-					if(resp.ok)
+					if(resp.ok){
 						ssids=await resp.json();
-					else{
-						alert("could not fetch ssids! :(");
-						return;
+					}else{
+							alert("could not fetch ssids :(");
+							return;
 					}
-					
 					ssids=ssids.sort(function (a,b){ return b.rssi-a.rssi; });
 					var names=[], pos=[];
 					for(i=0;i<ssids.length;++i){
@@ -156,6 +155,6 @@ tr:hover{
 		</form>
 	</div>
 	</div>
-<script> await genTable(); </script>
+<script> genTable(); </script>
 </body>
 </html>

@@ -13,6 +13,7 @@
 #include "lwip/sys.h"
 #include "config.h"
 
+
 static void setup_ap(void) {
     esp_netif_t *iface=esp_netif_create_default_wifi_ap();
 
@@ -33,7 +34,7 @@ static void setup_ap(void) {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     esp_netif_set_hostname(iface, CONF_HOSTNAME);
@@ -99,7 +100,7 @@ void reset_wifi(void){
 
 uint16_t scan_wifi(wifi_ap_record_t **ssids){
 	wifi_scan_config_t scan_config;
-	wifi_scan_time_t scan_time={ .active=(wifi_active_scan_time_t) {.min=400, .max=1000}, .passive=1500};
+	wifi_scan_time_t scan_time={ .active=(wifi_active_scan_time_t) {.min=0, .max=150}, .passive=1500};
 	memset(&scan_config, 0, sizeof(wifi_scan_config_t));
 	
 	scan_config.scan_type=WIFI_SCAN_TYPE_ACTIVE;

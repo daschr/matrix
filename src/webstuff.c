@@ -7,6 +7,8 @@
 #include <nvs_flash.h>
 #include "esp_wifi.h"
 #include "wifi.h"
+#include "time.h"
+#include "freertos/task.h"
 
 #include "config.h"
 #include "helper.h"
@@ -16,16 +18,16 @@
 
 extern char misc_cert_pem[];
 extern char misc_html_index_html[];
+extern char misc_html_wifi_html[];
 extern char misc_html_redirect_html[];
 
-esp_err_t ota_get(httpd_req_t *r) {
-    char *payload=	"<html><body><form action=\"/ota\" method=\"post\">"
-                    "OTA-URL: <input type=\"text\" name=\"url\"><br>"
-                    "<input type=\"submit\" value=\"Submit\">"
-                    "</form></body></html>";
-    httpd_resp_send(r, payload, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
+
+SemaphoreHandle_t scan_mut=NULL;
+struct ssids_buf {
+    size_t bufsize;
+    char *buf;
+    long wrtime;
+} scan_buf;
 
 esp_err_t ota_post(httpd_req_t *r) {
     if(r->content_len > STND_BUFSIZE) {
@@ -172,37 +174,49 @@ end:
     return retc;
 }
 
-#define FORMAT "{\"ssid\":\"%s\",\"rssi\":%d}%c"
+#define FORMAT "{\"ssid\":\"%s\",\"rssi\":%d,\"authmode\":%d}%c"
 esp_err_t get_wifi_ssids(httpd_req_t *r) {
-    wifi_ap_record_t *ssids=NULL;
-    int found_ssids=scan_wifi(&ssids);
-    httpd_resp_set_type(r, "application/json");
-    if(found_ssids==0) {
-        httpd_resp_sendstr(r, "[]");
-        free(ssids);
-        return ESP_OK;
-    }
+    if(xSemaphoreTake(scan_mut, (TickType_t) 20)==pdTRUE) {
+        if(time(NULL)-scan_buf.wrtime>30) {
+            wifi_ap_record_t *ssids=NULL;
+            int found_ssids=scan_wifi(&ssids);
+            httpd_resp_set_type(r, "application/json");
+            if(found_ssids==0) {
+                httpd_resp_sendstr(r, "[]");
+                free(ssids);
+                return ESP_OK;
+            }
 
-    char *buf=malloc((strlen(FORMAT)+33+8)*found_ssids);
-    char *sp=buf+1;
-    memset(buf, 0, (strlen(FORMAT)+33+8)*found_ssids);
-    buf[0]='[';
 
-    for(int i=0; i<found_ssids; ++i)
-        sp+=sprintf(sp, FORMAT, ssids[i].ssid, ssids[i].rssi, i==found_ssids-1?']':',');
+            size_t bufsize=(	strlen(FORMAT)+
+                                sizeof(ssids->ssid)+
+                                3+ // ssids->rssi
+                                3 // ssids->authmode
+                           )*found_ssids;
+            if(scan_buf.bufsize<bufsize) {
+                scan_buf.bufsize=bufsize;
+                scan_buf.buf=scan_buf.buf == NULL ? malloc(bufsize): realloc(scan_buf.buf, bufsize);
+            }
+            char *sp=scan_buf.buf+1;
+            memset(scan_buf.buf, 0, scan_buf.bufsize);
+            scan_buf.buf[0]='[';
 
-    httpd_resp_sendstr(r, buf);
-    free(buf);
-    free(ssids);
+            for(int i=0; i<found_ssids; ++i){
+                sp+=sprintf(sp, FORMAT, ssids[i].ssid, ssids[i].rssi, ssids[i].authmode, i==found_ssids-1?']':',');
+			}
+			scan_buf.wrtime=time(NULL);
+			free(ssids);
+ 		}
+        httpd_resp_sendstr(r, scan_buf.buf);
+
+		xSemaphoreGive(scan_mut);
+    	return ESP_OK;
+	}
+	httpd_resp_set_status(r, "403"); 
+	httpd_resp_sendstr(r, "unable to get mutex :(\n");
     return ESP_OK;
 }
 #undef FORMAT
-
-esp_err_t reset_wifi_conf(httpd_req_t *r) {
-    reset_wifi();
-    httpd_resp_sendstr(r, "success\n");
-    return ESP_OK;
-}
 
 esp_err_t matrix_handler(httpd_req_t *r) {
     if(r->content_len > STND_BUFSIZE) {
@@ -254,7 +268,7 @@ esp_err_t matrix_handler(httpd_req_t *r) {
         goto end;
     }
 
-	int i=0;
+    int i=0;
     for(char *c=decoded_val; *c!='\0'; ++i) {
         if(*c==0xc3 && ( *(c+1)==0xb6 || *(c+1)==0x96)) {
             decoded_val[i]='~'+1;
@@ -268,12 +282,12 @@ esp_err_t matrix_handler(httpd_req_t *r) {
             decoded_val[i]='~'+3;
             c+=2;
         }
-        else{
+        else {
             decoded_val[i]=*c;
-			++c;
-		}
+            ++c;
+        }
     }
-	decoded_val[i]='\0';
+    decoded_val[i]='\0';
 
     if(nvs_set_str(nvs_handle, "text", decoded_val) != ESP_OK) {
         httpd_resp_set_status(r, "408");
@@ -296,27 +310,40 @@ end:
     return retc;
 }
 
-esp_err_t get_restart(httpd_req_t *r) {
-    esp_restart();
+esp_err_t serve_gets(httpd_req_t *r) {
+    if(!strcmp(r->uri, "/")) {
+        httpd_resp_sendstr(r, misc_html_index_html);
+        return ESP_OK;
+    } else if(!strcmp(r->uri, "/wifi")) {
+        httpd_resp_sendstr(r, misc_html_wifi_html);
+        return ESP_OK;
+    } else if(!strcmp(r->uri, "/ota")) {
+        static const char *payload=	"<html><body><form action=\"/ota\" method=\"post\">"
+                                    "OTA-URL: <input type=\"text\" name=\"url\"><br>"
+                                    "<input type=\"submit\" value=\"Submit\">"
+                                    "</form></body></html>";
+        httpd_resp_send(r, payload, HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    } else if(!strcmp(r->uri, "/reset-wifi")) {
+        reset_wifi();
+        httpd_resp_sendstr(r, "ok");
+        return ESP_OK;
+    } else if(!strcmp(r->uri, "/restart")) {
+        esp_restart();
+        httpd_resp_sendstr(r, "ok");
+        return ESP_OK;
+    } else if(!strcmp(r->uri, "/ssids")) {
+        return get_wifi_ssids(r);
+    }
+
+    httpd_resp_send_404(r);
     return ESP_OK;
 }
 
-esp_err_t get_index(httpd_req_t *r) {
-    httpd_resp_sendstr(r, misc_html_index_html);
-    return ESP_OK;
-}
-
-httpd_uri_t index_uri = {
-    .uri = "/",
+httpd_uri_t get_uris = {
+    .uri = "/*",
     .method = HTTP_GET,
-    .handler = get_index,
-    .user_ctx = NULL
-};
-
-httpd_uri_t reset_wifi_uri = {
-    .uri = "/reset-wifi",
-    .method = HTTP_GET,
-    .handler = reset_wifi_conf,
+    .handler = serve_gets,
     .user_ctx = NULL
 };
 
@@ -334,27 +361,6 @@ httpd_uri_t wifi_uri = {
     .user_ctx = NULL
 };
 
-httpd_uri_t get_wifi_ssids_uri = {
-    .uri = "/ssids",
-    .method = HTTP_GET,
-    .handler = get_wifi_ssids,
-    .user_ctx = NULL
-};
-
-httpd_uri_t get_restart_uri = {
-    .uri = "/restart",
-    .method = HTTP_GET,
-    .handler = get_restart,
-    .user_ctx = NULL
-};
-
-httpd_uri_t ota_uri_get = {
-    .uri = "/ota",
-    .method = HTTP_GET,
-    .handler = ota_get,
-    .user_ctx = NULL
-};
-
 httpd_uri_t ota_uri_post = {
     .uri = "/ota",
     .method = HTTP_POST,
@@ -365,29 +371,27 @@ httpd_uri_t ota_uri_post = {
 httpd_handle_t start_webserver() {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
+    config.uri_match_fn=httpd_uri_match_wildcard;
     httpd_handle_t server = NULL;
 
     if (httpd_start(&server, &config) == ESP_OK) {
+        
+		scan_mut=xSemaphoreCreateMutex();
+		
+		scan_buf.wrtime=0;
+		scan_buf.buf=NULL;
+		scan_buf.bufsize=0;
+
+        //get handler
+        httpd_register_uri_handler(server, &get_uris);
+
         //set matrix text
         httpd_register_uri_handler(server, &matrix_uri);
-
-        //index
-        httpd_register_uri_handler(server, &index_uri);
 
         //allows storing other wifi creds
         httpd_register_uri_handler(server, &wifi_uri);
 
-        //reset wifi creds
-        httpd_register_uri_handler(server, &reset_wifi_uri);
-
-        //list ssids and rssi
-        httpd_register_uri_handler(server, &get_wifi_ssids_uri);
-
-        //allows restart over http-get
-        httpd_register_uri_handler(server, &get_restart_uri);
-
         //OTA
-        httpd_register_uri_handler(server, &ota_uri_get);
         httpd_register_uri_handler(server, &ota_uri_post);
     } else {
         printf("could not start webserver :(\n");

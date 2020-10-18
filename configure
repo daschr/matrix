@@ -5,7 +5,7 @@ embed_files(){
 	[ -e "tools/bin2c" ] || cc -O3  -Wall -pedantic -o tools/bin2c tools/bin2c.c || exit 1
 
 	local out=src/files.c
-	local files=(misc/cert.pem misc/html/index.html misc/html/redirect.html)
+	local files=(misc/cert.pem misc/html/index.html misc/html/wifi.html misc/html/redirect.html)
 	
 	echo "" > "$out"
 	for	f in "${files[@]}"; do
