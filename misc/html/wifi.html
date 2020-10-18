@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+<title>Matrix Display - WiFi</title>
+
+<style>
+
+body {
+    background: #DCDCDC;
+}
+
+.display-box {
+       position: fixed;
+       height: 100%;
+       width: 100%;
+       display: block;
+       top: 0px;
+       left: 0px;
+       background-color: rgb(57,57,57);
+}
+
+.main-content{
+	margin: 0;
+  	position: absolute;
+  	top: 50%;
+  	left: 50%;
+  	-ms-transform: translate(-50%, -50%);
+  	transform: translate(-50%, -50%);
+}
+
+input[type=submit] {
+	background-color: transparent;
+	border: 2px solid #656565;
+	color: #d0d0d0;
+	box-sizing: border-box;
+}
+
+input[type=button] {
+	background-color: transparent;
+	border: 2px solid #656565;
+	color: #d0d0d0;
+	box-sizing: border-box;
+}
+
+input[type=text] {
+	background-color: transparent;
+	border: 2px solid #656565;
+	border-radius: 2px;
+	color: #d0d0d0;
+	box-sizing: border-box;
+}
+
+input[type=text]:focus {
+	background-color: transparent;
+	border: 4px solid #578D20;
+	border-radius: 2px;
+	box-sizing: border-box;
+	outline-width: 0;
+}
+
+#pass-label {
+	color: #d0d0d0;
+}
+
+table, th, td {
+	color: #d0d0d0;
+	text-align: center;
+}
+
+tr:hover{
+		background-color: #656565;
+}
+
+#wifi-form{
+	display: none;
+}
+</style>
+
+		<script>
+				async function genTable(){
+					var resp=fetch("/ssids");
+					var ssids;
+					if(resp.ok)
+						ssids=await resp.json();
+					else{
+						alert("could not fetch ssids! :(");
+						return;
+					}
+					
+					ssids=ssids.sort(function (a,b){ return b.rssi-a.rssi; });
+					var names=[], pos=[];
+					for(i=0;i<ssids.length;++i){
+						if(!names.includes(ssids[i].ssid)) names.push(ssids[i].ssid);
+						else pos.push(i);
+					}
+					ssids=ssids.filter(function(e,i){return !pos.includes(i);});
+
+					var table=document.getElementById("ssid-tab");
+	
+					var tbody=document.createElement("tbody");
+					table.appendChild(tbody);
+						
+					ssids.forEach(function(e) {
+						var row=tbody.insertRow(-1);
+						var cell=row.insertCell(-1);
+						cell.innerText=e["ssid"];
+						cell=row.insertCell(-1);
+						cell.innerText=((e["rssi"]+100)*2)+"%";
+						var rowClickHandler=function(row){
+							return function(){
+								var ssid=row.getElementsByTagName("td")[0];
+								showConnectDialog(ssid.innerText);
+							};
+						};
+						
+						row.onclick=rowClickHandler(row);
+					})
+				}
+
+				function showConnectDialog(ssid){
+					var table=document.getElementById("ssid-tab");
+					var form=document.getElementById("wifi-form");
+					var label=document.getElementById("pass-label");
+					document.getElementById("ssid").value=ssid;
+					document.getElementById("pass").value="password";
+					label.innerText=ssid+":";
+					table.style.display="none";
+					form.style.display="block";
+				}
+				
+				function cancel(){
+					var table=document.getElementById("ssid-tab");
+					var form=document.getElementById("wifi-form");
+					var label=document.getElementById("pass-label");
+					form.style.display="none";
+					table.style.display="block";
+				}
+		</script>
+</head>
+<body>
+
+	<div class="display-box">
+	<div class="main-content">
+		<table id="ssid-tab">
+		</table>
+		<form action="/wifi" method="post" id="wifi-form">
+			<input type="hidden" class="rq-form-element" name="ssid" id="ssid" value="" readonly>
+			<label id="pass-label" for="pass">Password for ssid:</label>
+			<input type="text" class="rq-form-element" name="pass" id="pass">
+			<center>
+					<br>
+			<input type="submit" value="OK">
+			<input type="button" value="CANCEL" onclick="cancel()">
+			<center>
+		</form>
+	</div>
+	</div>
+<script> await genTable(); </script>
+</body>
+</html>
